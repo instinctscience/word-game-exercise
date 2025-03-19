@@ -8,11 +8,12 @@ defmodule Instinct.WordGames.WordGameSlot do
 
   schema "word_game_slots" do
     belongs_to(:word_game, WordGames.WordGame)
-    belongs_to(:word_game_guess, WordGames.WordGameGuess)
     field(:character, :string)
     field(:position, :integer)
     field(:points, :integer)
-    field(:is_active, :boolean)
+    field(:is_revealed, :boolean)
+    field(:reveal_actor, Ecto.Enum, values: [:guess, :hint], null: true)
+    field(:reveal_actor_id, :integer, null: true)
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -24,10 +25,13 @@ defmodule Instinct.WordGames.WordGameSlot do
       :character,
       :position,
       :points,
-      :is_active
+      :is_revealed
     ]
 
-    optional = [:word_game_guess_id]
+    optional = [
+      :reveal_actor,
+      :reveal_actor_id
+    ]
 
     game
     # empty_values: [] allows <space> characters " " to not be cast to nil

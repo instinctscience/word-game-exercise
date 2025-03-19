@@ -166,8 +166,10 @@ defmodule Instinct.WordGames.WordGames do
     %WordGameSlot{}
     |> WordGameSlot.changeset(%{
       word_game_id: word_game_id,
-      # special characters "," "-" "'" start as active
-      is_active: letter_character?(character) == false,
+      # special characters "," "-" "'" start as revealed
+      is_revealed: letter_character?(character) == false,
+      reveal_actor: nil,
+      reveal_actor_id: nil,
       position: position,
       character: character,
       points: get_character_value(character)
@@ -214,7 +216,7 @@ defmodule Instinct.WordGames.WordGames do
       # Lookup the game slot at the corresponding position
       # If it is inactive, update it if the character matches
       #   - Update the guess_id
-      #   - Update is_active
+      #   - Update is_revealed
       guess_characters
       |> Enum.with_index()
       |> Enum.each(fn {guess_character, index} ->
@@ -222,12 +224,12 @@ defmodule Instinct.WordGames.WordGames do
           {:ok, slot} ->
             cond do
               # Ignore already active slots
-              slot.is_active ->
+              slot.is_revealed ->
                 slot
 
               # Correct guess!
               slot.character == guess_character ->
-                update_game_slot(slot, %{is_active: true, word_game_guess_id: game_guess.id})
+                update_game_slot(slot, %{is_revealed: true, reveal_actor: :guess, reveal_actor_id: game_guess.id})
 
               # Ignore incorrect guesses.
               true ->
@@ -264,7 +266,7 @@ defmodule Instinct.WordGames.WordGames do
     hint_slots = find_next_hint_slots(slots)
 
     Enum.each(hint_slots, fn hint_slot ->
-      update_game_slot(hint_slot, %{is_active: true})
+      update_game_slot(hint_slot, %{is_revealed: true, reveal_actor: :hint, reveal_actor_id: nil})
     end)
 
     update_word_game_stats(word_game)
@@ -278,7 +280,7 @@ defmodule Instinct.WordGames.WordGames do
       slots = list_game_slots(word_game)
 
       Enum.each(slots, fn slot ->
-        update_game_slot(slot, %{is_active: true})
+        update_game_slot(slot, %{is_revealed: true, reveal_actor: :hint, reveal_actor_id: nil})
       end)
 
       update_word_game_stats(word_game)
@@ -293,7 +295,7 @@ defmodule Instinct.WordGames.WordGames do
   end
 
   defp find_next_hint_slots(slots) do
-    empty_guessable_slots = Enum.filter(slots, fn slot -> slot.points > 0 and slot.is_active == false end)
+    empty_guessable_slots = Enum.filter(slots, fn slot -> slot.points > 0 and slot.is_revealed == false end)
 
     # This "hint engine" reveals hidden letters in the board in a predictable order using the @characters list order.
     Enum.reduce_while(@characters, [], fn {character, _points}, acc ->
@@ -315,7 +317,7 @@ defmodule Instinct.WordGames.WordGames do
   def update_word_game_stats(word_game) do
     slots = list_game_slots(word_game)
 
-    is_game_completed = slots |> Enum.map(& &1.is_active) |> Enum.all?()
+    is_game_completed = slots |> Enum.map(& &1.is_revealed) |> Enum.all?()
 
     next_score =
       Enum.reduce(slots, 0, fn slot, score ->
@@ -372,7 +374,7 @@ defmodule Instinct.WordGames.WordGames do
   def get_game_phrase(game) do
     game
     |> list_game_slots()
-    |> Enum.map_join("", &if(&1.is_active, do: &1.character, else: "_"))
+    |> Enum.map_join("", &if(&1.is_revealed, do: &1.character, else: "_"))
   end
 
   @type game_filters_params() :: %{
