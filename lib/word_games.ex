@@ -1,4 +1,4 @@
-defmodule Instinct.WordGames.WordGames do
+defmodule Instinct.WordGames do
   import Ecto.Query, warn: false
 
   require Logger
@@ -9,8 +9,7 @@ defmodule Instinct.WordGames.WordGames do
     WordGame,
     WordGameTemplate,
     WordGameSlot,
-    WordGameGuess,
-    WordGamePlayer
+    WordGameGuess
   }
 
   #############
@@ -63,7 +62,7 @@ defmodule Instinct.WordGames.WordGames do
 
   @spec get_word_game_template(Data.id()) :: WordGameTemplate.result()
   def get_word_game_template(game_template_date) do
-    Repo.fetch(WordGameTemplate, game_template_date)
+    Repo.get(WordGameTemplate, game_template_date)
   end
 
   @spec create_game_template(map) :: WordGameTemplate.result()
@@ -74,7 +73,6 @@ defmodule Instinct.WordGames.WordGames do
     |> WordGameTemplate.changeset(attrs)
     |> Repo.insert()
   end
-
 
   #################################
   # Creating a Game
@@ -89,7 +87,7 @@ defmodule Instinct.WordGames.WordGames do
 
   @spec get_game(Data.id()) :: WordGame.result()
   def get_game(game_id) do
-    Repo.fetch(WordGame, game_id)
+    Repo.get(WordGame, game_id)
   end
 
   @spec get_existing_word_game(String.t(), map) :: WordGame.result()
@@ -99,7 +97,7 @@ defmodule Instinct.WordGames.WordGames do
         g.word_game_template_date == ^date and g.user_id == ^attrs.user_id and
           g.location_id == ^attrs.location_id
     )
-    |> Repo.fetch_one()
+    |> Repo.one()
   end
 
   @spec create_game(map) :: WordGame.result()
@@ -149,15 +147,16 @@ defmodule Instinct.WordGames.WordGames do
 
   @spec get_game_slot(Data.id()) :: WordGameSlot.result()
   def get_game_slot(slot_id) do
-    Repo.fetch(WordGameSlot, slot_id)
+    Repo.get(WordGameSlot, slot_id)
   end
 
   @spec get_game_slot_by_position(WordGame.t(), number) :: WordGameSlot.result()
   def get_game_slot_by_position(game, position) do
-    Repo.fetch_one(
-      from s in WordGameSlot,
+    Repo.one(
+      from(s in WordGameSlot,
         where: s.word_game_id == ^game.id,
         where: s.position == ^position
+      )
     )
   end
 
@@ -229,7 +228,11 @@ defmodule Instinct.WordGames.WordGames do
 
               # Correct guess!
               slot.character == guess_character ->
-                update_game_slot(slot, %{is_revealed: true, reveal_actor: :guess, reveal_actor_id: game_guess.id})
+                update_game_slot(slot, %{
+                  is_revealed: true,
+                  reveal_actor: :guess,
+                  reveal_actor_id: game_guess.id
+                })
 
               # Ignore incorrect guesses.
               true ->
@@ -245,7 +248,7 @@ defmodule Instinct.WordGames.WordGames do
       # Update the scores for the game
       update_word_game_stats(word_game)
     else
-      {:error, %Error{type: :exceeded_remaining_guesses, message: "No guesses remaining"}}
+      {:error, %{type: :exceeded_remaining_guesses, message: "No guesses remaining"}}
     end
   end
 
@@ -285,7 +288,7 @@ defmodule Instinct.WordGames.WordGames do
 
       update_word_game_stats(word_game)
     else
-      {:error, %Error{type: :remaining_guesses, message: "Game still has remaining guesses"}}
+      {:error, %{type: :remaining_guesses, message: "Game still has remaining guesses"}}
     end
   end
 
@@ -295,7 +298,8 @@ defmodule Instinct.WordGames.WordGames do
   end
 
   defp find_next_hint_slots(slots) do
-    empty_guessable_slots = Enum.filter(slots, fn slot -> slot.points > 0 and slot.is_revealed == false end)
+    empty_guessable_slots =
+      Enum.filter(slots, fn slot -> slot.points > 0 and slot.is_revealed == false end)
 
     # This "hint engine" reveals hidden letters in the board in a predictable order using the @characters list order.
     Enum.reduce_while(@characters, [], fn {character, _points}, acc ->
@@ -377,10 +381,18 @@ defmodule Instinct.WordGames.WordGames do
     |> Enum.map_join("", &if(&1.is_revealed, do: &1.character, else: "_"))
   end
 
+  def list_players(_params) do
+    []
+  end
+
+  def get_player(_id) do
+    nil
+  end
+
   @type game_filters_params() :: %{
           optional(:limit) => integer,
-          optional(:location_id) => Data.id(),
-          optional(:user_id) => Data.id(),
+          optional(:location_id) => integer(),
+          optional(:user_id) => integer(),
           optional(:start_date) => Date.t(),
           optional(:end_date) => Date.t()
         }
@@ -389,13 +401,13 @@ defmodule Instinct.WordGames.WordGames do
   defp with_game_filters(params, query) do
     Enum.reduce(params, query, fn
       {:limit, limit}, query ->
-        from g in query, limit: ^limit
+        from(g in query, limit: ^limit)
 
       {:location_id, location_id}, query ->
-        from g in query, where: g.location_id == ^location_id
+        from(g in query, where: g.location_id == ^location_id)
 
       {:user_id, user_id}, query ->
-        from g in query, where: g.user_id == ^user_id
+        from(g in query, where: g.user_id == ^user_id)
 
       {:start_date, start_date}, query ->
         from(g in query,
@@ -425,17 +437,19 @@ defmodule Instinct.WordGames.WordGames do
   defp with_game_template_filters(params, query) do
     Enum.reduce(params, query, fn
       {:limit, limit}, query ->
-        from gt in query, limit: ^limit
+        from(gt in query, limit: ^limit)
 
       {:start_date, start_date}, query ->
-        from gt in query,
+        from(gt in query,
           where: gt.date >= ^start_date,
           or_where: is_nil(gt.date)
+        )
 
       {:end_date, end_date}, query ->
-        from gt in query,
+        from(gt in query,
           where: gt.date <= ^end_date,
           or_where: is_nil(gt.date)
+        )
 
       _, query ->
         query

@@ -1,19 +1,18 @@
 defmodule Instinct.WordGames.WordGameSlot do
   use Ecto.Schema
-  use Instinct.SchemaResultTypes
 
   import Ecto.Changeset
 
   alias Instinct.WordGames
+
+  @type t :: %__MODULE__{}
 
   schema "word_game_slots" do
     belongs_to(:word_game, WordGames.WordGame)
     field(:character, :string)
     field(:position, :integer)
     field(:points, :integer)
-    field(:is_revealed, :boolean)
-    field(:reveal_actor, Ecto.Enum, values: [:guess, :hint], null: true)
-    field(:reveal_actor_id, :integer, null: true)
+    field(:reveal_status, Ecto.Enum, values: [:hidden, :guess, :hint])
 
     timestamps(type: :utc_datetime_usec)
   end

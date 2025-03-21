@@ -1,9 +1,9 @@
 defmodule Instinct.WordGames.WordGameTemplate do
   use Ecto.Schema
-  use Instinct.SchemaResultTypes
-  use Instinct.StandardData
 
   import Ecto.Changeset
+
+  @type t :: %__MODULE__{}
 
   @primary_key {:date, :date, autogenerate: false}
   schema "word_game_templates" do

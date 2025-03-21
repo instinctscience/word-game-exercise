@@ -1,10 +1,11 @@
 defmodule Instinct.WordGames.WordGame do
   use Ecto.Schema
-  use Instinct.SchemaResultTypes
 
   import Ecto.Changeset
 
   alias Instinct.{Organization, Staff, WordGames}
+
+  @type t :: %__MODULE__{}
 
   schema "word_games" do
     belongs_to(:word_game_template, WordGames.WordGameTemplate,
